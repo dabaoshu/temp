@@ -1,0 +1,17 @@
+# 依赖目录
+node_modules/
+
+# 下载文件目录
+downloads/
+
+# 日志文件
+*.log
+npm-debug.log*
+
+# 环境变量文件
+.env
+.env.local
+
+# 操作系统文件
+.DS_Store
+Thumbs.db

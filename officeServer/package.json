@@ -1,0 +1,24 @@
+{
+  "name": "onlyoffice-server",
+  "version": "1.0.0",
+  "description": "OnlyOffice API 服务器，处理文档编辑回调和配置",
+  "main": "api-example.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node api-example.js",
+    "dev": "node api-example.js"
+  },
+  "keywords": [
+    "onlyoffice",
+    "document-editor",
+    "api-server"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "minio": "^7.1.3",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {}
+}

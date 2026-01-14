@@ -1,0 +1,45 @@
+{
+  "server": {
+    "port": 3001,
+    "host": "0.0.0.0"
+  },
+  "jwt": {
+    "secret": "jnYyXgPeDFL0+TwE+t4Ww2lVTDqOZJVZWWpLwiVBcxY=",
+    "algorithm": "HS256"
+  },
+  "onlyoffice": {
+    "callbackUrl": "http://api-server:3001/api/onlyoffice/callback",
+    "documentServerUrl": "http://localhost:3333",
+    "defaultLang": "zh-CN"
+  },
+  "minio": {
+    "endpoint": "minio",
+    "port": 9000,
+    "useSSL": false,
+    "accessKey": "minioadmin",
+    "secretKey": "minioadmin",
+    "bucket": "documents"
+  },
+  "document": {
+    "downloadPath": "./downloads",
+    "defaultPermissions": {
+      "edit": true,
+      "download": true,
+      "print": true,
+      "review": true,
+      "comment": true
+    },
+    "defaultCustomization": {
+      "chat": true,
+      "comments": true,
+      "feedback": false,
+      "forcesave": true,
+      "submitForm": true
+    }
+  },
+  "fileTypes": {
+    "docx": "word",
+    "xlsx": "cell",
+    "pptx": "slide"
+  }
+}

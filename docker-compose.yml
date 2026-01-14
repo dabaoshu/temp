@@ -1,0 +1,72 @@
+version: "3.8"
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio-server
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # MinIO API 端口
+      - "9001:9001"  # MinIO Console 端口
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - ./data/minio:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  onlyoffice:
+    image:  guanyueyun/ooffice:7.1.1.23
+    container_name: onlyoffice-server
+    restart: unless-stopped
+    ports:
+      - "3333:80"
+    environment:
+      - WOPI_ENABLED=true         # 核心开关
+      - JWT_ENABLED=true
+      - JWT_HEADER=Authorization
+      - JWT_IN_BODY=true
+      - JWT_SECRET=jnYyXgPeDFL0+TwE+t4Ww2lVTDqOZJVZWWpLwiVBcxY= # 生产请换成 32 位随机串
+      - ALLOW_PRIVATE_IP=true     # 本地调试必需
+    volumes:
+      - ./data/logs:/var/log/onlyoffice
+      - ./data/app:/var/www/onlyoffice/Data
+      - ./data/lib:/var/lib/onlyoffice
+      - ./data/db:/var/lib/postgresql
+      - ./config/local-production-linux.json:/etc/onlyoffice/documentserver/local-production-linux.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - minio
+    networks:
+      - default
+
+  api-server:
+    build:
+      context: ./officeServer
+      dockerfile: Dockerfile
+    container_name: onlyoffice-api-server
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOST=0.0.0.0
+      - JWT_SECRET=jnYyXgPeDFL0+TwE+t4Ww2lVTDqOZJVZWWpLwiVBcxY= # 与 onlyoffice 服务保持一致
+    volumes:
+      - ./officeServer/config.json:/app/config.json:ro
+    depends_on:
+      - minio
+      - onlyoffice
+    networks:
+      - default
