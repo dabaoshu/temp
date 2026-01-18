@@ -27,6 +27,7 @@ import {
   type AppConfig,
   type DocumentPermissions,
   type DocumentCustomization,
+  type DocumentLayout,
   type User,
   type FileTypes,
 } from "./config";
@@ -39,6 +40,7 @@ interface ConfigRequest {
   userName?: string;
   mode?: string;
   permissions?: DocumentPermissions;
+  layout?: DocumentLayout;
 }
 
 interface CallbackRequest {
@@ -161,7 +163,6 @@ app.post(
 
         case 6:
           // 文档正在保存
-          console.log("文档正在保存中");
           const newUrl = url?.replace(
             config.onlyoffice.documentServerUrl,
             "http://" + config.onlyoffice.host
@@ -173,7 +174,7 @@ app.post(
             config.onlyoffice.documentServerUrl
           );
           if (downUrl) {
-            const u = await downloadAndSaveDocument(
+            downloadAndSaveDocument(
               newUrl,
               config.minio,
               config.document.downloadPath,
@@ -181,7 +182,7 @@ app.post(
             ).catch((err) => {
               console.error("保存文档失败:", err);
             });
-            console.log("保存文档成功:", u);
+            // console.log("保存文档成功:", u);
           }
           break;
 
@@ -198,7 +199,7 @@ app.post(
       res.json({ error: 0 });
     } catch (error: any) {
       console.error("处理回调时出错:", error);
-      res.status(500).json(serverError(error.message));
+      res.status(500).json({ error: 1, message: error.message });
     }
   }
 );
@@ -315,6 +316,8 @@ app.post(
         {}) as DocumentPermissions;
       const defaultCustomization = (config.document.defaultCustomization ||
         {}) as DocumentCustomization;
+      const defaultLayout = defaultCustomization.layout || {};
+      const requestLayout = req.body.layout || {};
       const callbackUrl = `${config.onlyoffice.callbackUrl}?downUrl=${documentUrl}&fileUrl=${encodeURIComponent(fileId)}`;
       const defaultLang = config.onlyoffice.defaultLang || "zh-CN";
       const documentServerUrl = config.onlyoffice.documentServerUrl;
@@ -385,10 +388,6 @@ app.post(
             name: userName || "匿名用户",
           },
           customization: {
-            feedback:
-              defaultCustomization.feedback !== undefined
-                ? defaultCustomization.feedback
-                : false,
             forcesave:
               defaultCustomization.forcesave !== undefined
                 ? defaultCustomization.forcesave
@@ -397,6 +396,64 @@ app.post(
               defaultCustomization.submitForm !== undefined
                 ? defaultCustomization.submitForm
                 : true,
+            // 是否显示"关于"按钮
+            compactHeader: true,
+            about: false,
+            help: false,
+            plugins: false,
+            feedback: { visible: false },
+            logo: {
+              image: "",
+              imageDark: "",
+              imageLight: "",
+              visible: false,
+            },
+            // 布局配置
+            layout: {
+              // 是否使用紧凑工具栏（减少工具栏高度，节省空间）
+              compactToolbar: false,
+              // 是否使用紧凑头部（减少顶部标题栏高度）
+              compactHeader: false,
+              // 是否隐藏右侧菜单（评论、协作等侧边栏）
+              hideRightMenu: true,
+              // 是否隐藏标尺（文档编辑区域上方的标尺）
+              hideRulers: false,
+              // 工具栏配置（控制各个工具栏标签页的显示）
+              toolbar: {
+                collaboration: false, // 1. 干掉「协作」页签
+
+                // 是否显示绘图工具栏（插入形状、图表等）
+                draw: true,
+                // 文件菜单工具栏配置
+                file: {
+                  // 是否显示关闭按钮
+                  close: true,
+                  // 是否显示文件信息按钮
+                  info: true,
+                  // 是否显示保存按钮
+                  save: true,
+                  // 是否显示设置按钮
+                  settings: false,
+                },
+                // 主页工具栏（默认显示所有功能，空对象表示使用默认配置）
+                home: {},
+                // 是否显示布局工具栏（页面布局、边距、方向等）
+                layout: true,
+                // 是否显示插件工具栏（插件管理）
+                plugins: false,
+                // 是否显示保护工具栏（文档保护、权限设置）
+                protect: false,
+                // 是否显示引用工具栏（目录、脚注、引用等）
+                references: true,
+                // 是否显示保存按钮（顶部工具栏）
+                save: true,
+                // 视图工具栏配置
+                view: {
+                  // 是否显示导航窗格（文档大纲、页面缩略图）
+                  navigation: true,
+                },
+              },
+            },
           },
         },
       } as any;

@@ -35,11 +35,26 @@ export interface DocumentPermissions {
   chat: boolean;
 }
 
+export interface DocumentLayout {
+  compactToolbar?: boolean;
+  compactHeader?: boolean;
+  hideRightMenu?: boolean;
+  hideRulers?: boolean;
+  toolbar?: boolean | string;
+  goback?: {
+    url: string;
+    text?: string;
+  };
+  unit?: "cm" | "pt" | "in";
+  zoom?: number; // 0-400
+}
+
 export interface DocumentCustomization {
   comments: boolean;
   feedback: boolean;
   forcesave: boolean;
   submitForm: boolean;
+  layout?: DocumentLayout;
 }
 
 export interface DocumentConfig {
@@ -114,6 +129,15 @@ function getDefaultConfig(): AppConfig {
         feedback: false,
         forcesave: true,
         submitForm: true,
+        layout: {
+          compactToolbar: false,
+          compactHeader: false,
+          hideRightMenu: false,
+          hideRulers: false,
+          toolbar: true,
+          unit: "cm",
+          zoom: 100,
+        },
       },
     },
     fileTypes: {
