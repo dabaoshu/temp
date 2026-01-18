@@ -1,0 +1,64 @@
+{
+  // 使用 IntelliSense 了解相关属性。
+  // 悬停以查看现有属性的描述。
+  // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "调试 OnlyOffice API 服务器",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/officeServer/src/api-example.ts",
+      "runtimeArgs": [
+        "-r",
+        "ts-node/register"
+      ],
+      "cwd": "${workspaceFolder}/officeServer",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "env": {
+        "NODE_ENV": "development",
+        "TS_NODE_FILES": "true",
+        "TS_NODE_TRANSPILE_ONLY": "false"
+      },
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "调试当前 TypeScript 文件",
+      "type": "node",
+      "request": "launch",
+      "program": "${file}",
+      "runtimeArgs": [
+        "-r",
+        "ts-node/register"
+      ],
+      "cwd": "${workspaceFolder}/officeServer",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "env": {
+        "NODE_ENV": "development",
+        "TS_NODE_FILES": "true",
+        "TS_NODE_TRANSPILE_ONLY": "false"
+      }
+    },
+    {
+      "name": "附加到进程",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true
+    }
+  ]
+}

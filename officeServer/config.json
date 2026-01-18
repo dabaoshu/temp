@@ -8,8 +8,10 @@
     "algorithm": "HS256"
   },
   "onlyoffice": {
-    "callbackUrl": "http://api-server:3001/api/onlyoffice/callback",
-    "documentServerUrl": "http://localhost:3333",
+    "callbackUrl": "http://api-server:3001/onlyofficeServer/onlyoffice/callback",
+    "port": 3333,
+    "host": "onlyoffice",
+    "documentServerUrl": "http://onlyoffice:3333",
     "defaultLang": "zh-CN"
   },
   "minio": {
@@ -18,26 +20,29 @@
     "useSSL": false,
     "accessKey": "minioadmin",
     "secretKey": "minioadmin",
-    "bucket": "documents"
+    "bucket": "documents",
+    "usePresignedUrl": true,
+    "presignedUrlExpiry": 604800
   },
   "document": {
     "downloadPath": "./downloads",
     "defaultPermissions": {
-      "edit": true,
+      "edit": false,
       "download": true,
       "print": true,
       "review": true,
-      "comment": true
+      "comment": false,
+      "chat": false
     },
     "defaultCustomization": {
-      "chat": true,
-      "comments": true,
+      "comments": false,
       "feedback": false,
       "forcesave": true,
       "submitForm": true
     }
   },
   "fileTypes": {
+    "doc": "word",
     "docx": "word",
     "xlsx": "cell",
     "pptx": "slide"

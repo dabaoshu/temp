@@ -27,10 +27,10 @@
       "download": true,
       "print": true,
       "review": true,
-      "comment": true
+      "comment": true,
+      "chat": true
     },
     "defaultCustomization": {
-      "chat": true,
       "comments": true,
       "feedback": false,
       "forcesave": true,
