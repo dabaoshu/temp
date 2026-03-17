@@ -33,6 +33,7 @@ directories=(
     "data/lib"
     "data/db"
     "data/minio"
+    "data/onlyofficeNginx"
 )
 
 for dir in "${directories[@]}"; do

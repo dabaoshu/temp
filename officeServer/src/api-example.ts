@@ -101,6 +101,32 @@ app.use(express.json());
 initMinioClient(config.minio);
 
 /**
+ * 根据原始下载 URL 和配置构建可访问的下载地址
+ *
+ * @param {string} originalUrl 原始回调中的文档下载 URL（可能是域名+端口或 IP+端口）
+ * @param {string} host 配置中的外部访问主机名或 IP
+ * @param {number} port 配置中的外部访问端口
+ * @returns {string} 替换主机和端口后的新 URL
+ */
+function buildDownloadUrl(
+  originalUrl: string,
+  host: string,
+  port: number
+): string {
+  try {
+    const parsed = new URL(originalUrl);
+    parsed.hostname = host;
+    if (port) {
+      parsed.port = String(port);
+    }
+    return parsed.toString();
+  } catch (error) {
+    console.error("构建下载 URL 失败，返回原始地址:", error);
+    return originalUrl;
+  }
+}
+
+/**
  * OnlyOffice 回调接口
  * 处理文档保存、状态更新等事件
  */
@@ -161,19 +187,26 @@ app.post(
           console.log("文档已关闭，无变化");
           break;
 
-        case 6:
+        case 6: {
           // 文档正在保存
-          const newUrl = url?.replace(
-            config.onlyoffice.documentServerUrl,
-            "http://" + config.onlyoffice.host
-          );
+          const originalUrl = url || downUrl;
 
-          console.log("newUrl:", newUrl);
+          console.log("originalUrl:", originalUrl);
           console.log(
             "config.onlyoffice.documentServerUrl:",
             config.onlyoffice.documentServerUrl
           );
-          if (downUrl) {
+
+          if (originalUrl && downUrl) {
+            const newUrl = buildDownloadUrl(
+              originalUrl,
+              config.onlyoffice.host,
+              config.onlyoffice.port
+            );
+
+            console.log("newUrl:", newUrl);
+            console.log("config.document.downloadPath:", config.document.downloadPath);
+            const downloadPath=path.join(config.document.downloadPath,fileUrl);
             downloadAndSaveDocument(
               newUrl,
               config.minio,
@@ -182,9 +215,9 @@ app.post(
             ).catch((err) => {
               console.error("保存文档失败:", err);
             });
-            // console.log("保存文档成功:", u);
           }
           break;
+        }
 
         case 7:
           // 文档保存失败
@@ -286,6 +319,7 @@ app.post(
       const documentType = getDocumentType(fileExtension);
 
       // 生成文档密钥
+      // const documentServerUrl = config.onlyoffice.documentServerUrl;
       const documentKey = generateDocumentKey();
 
       // 获取文档 URL（从 MinIO 或配置的文档服务器）
@@ -309,6 +343,8 @@ app.post(
       } else {
         // 如果没有 MinIO，使用配置中的文档服务器 URL
         documentUrl = `${config.onlyoffice.documentServerUrl}/${config.minio.bucket}/${fileId}`;
+
+        // documentUrl = `${documentServerUrl}/${config.minio.bucket}/${fileId}`;
       }
 
       // 获取默认权限和自定义设置
@@ -318,9 +354,8 @@ app.post(
         {}) as DocumentCustomization;
       const defaultLayout = defaultCustomization.layout || {};
       const requestLayout = req.body.layout || {};
-      const callbackUrl = `${config.onlyoffice.callbackUrl}?downUrl=${documentUrl}&fileUrl=${encodeURIComponent(fileId)}`;
+      const newCallbackUrl = `${config.onlyoffice.callbackUrl}?downUrl=${documentUrl}&fileUrl=${encodeURIComponent(fileId)}`;
       const defaultLang = config.onlyoffice.defaultLang || "zh-CN";
-      const documentServerUrl = config.onlyoffice.documentServerUrl;
 
       // 根据 mode 决定是否可编辑（如果未明确指定 permissions.edit）
       // mode === "edit" 时允许编辑，其他模式不允许编辑
@@ -382,7 +417,7 @@ app.post(
         editorConfig: {
           mode: mode,
           lang: defaultLang,
-          callbackUrl: callbackUrl,
+          callbackUrl: newCallbackUrl,
           user: {
             id: userId || "anonymous",
             name: userName || "匿名用户",
@@ -485,7 +520,6 @@ app.post(
           {
             config: editorConfig,
             token: token,
-            documentServerUrl: documentServerUrl,
           },
           "编辑器配置获取成功"
         )

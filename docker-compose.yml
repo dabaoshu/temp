@@ -44,6 +44,9 @@ services:
       - ./data/app:/var/www/onlyoffice/Data
       - ./data/lib:/var/lib/onlyoffice
       - ./data/db:/var/lib/postgresql
+         # Nginx 配置（关键！）
+      - ./data/onlyofficeNginx/ds.conf:/etc/onlyoffice/documentserver/nginx/ds.conf
+      - ./data/onlyofficeNginx/ds-docservice.conf:/etc/nginx/includes/ds-docservice.conf
       # - ./config/local.json:/etc/onlyoffice/documentserver/local.json
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]

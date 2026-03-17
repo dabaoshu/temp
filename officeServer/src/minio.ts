@@ -1,8 +1,3 @@
-/**
- * MinIO 客户端管理模块
- * 处理所有 MinIO 相关的操作，包括文件上传、下载、URL 生成等
- */
-
 import * as Minio from "minio";
 import fs from "fs";
 import path from "path";
@@ -307,13 +302,13 @@ export async function downloadAndSaveDocument(
 ): Promise<string> {
   try {
     // 如果提供了 fileUrl，使用它作为文件名，否则使用时间戳生成文件名
-    let objectName: string;
-    if (fileUrl) {
-      // 从 fileUrl 中提取文件名，如果 fileUrl 是完整路径，只取文件名部分
-      objectName = path.basename(fileUrl) || `document_${Date.now()}.docx`;
-    } else {
-      objectName = `document_${Date.now()}.docx`;
-    }
+    let objectName: string=fileUrl
+    // if (fileUrl) {
+    //   // 从 fileUrl 中提取文件名，如果 fileUrl 是完整路径，只取文件名部分
+    //   objectName = path.basename(fileUrl) || `document_${Date.now()}.docx`;
+    // } else {
+    //   objectName = `document_${Date.now()}.docx`;
+    // }
 
     // 确保对象名称以时间戳为前缀，避免覆盖
     const timestamp = Date.now();
