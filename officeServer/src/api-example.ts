@@ -75,23 +75,8 @@ interface CallbackRequest {
 // 配置 CORS
 const corsOptions: cors.CorsOptions = {
   origin: function (origin, callback) {
-    // 允许所有来源（开发环境）
-    // 生产环境建议配置具体的域名
-    if (!origin || process.env.NODE_ENV !== "production") {
-      return callback(null, true);
-    } else {
-      // 生产环境可以配置允许的域名列表3333为onlyoffice的端口
-      // 8000为前端端口
-      const allowedOrigins = process.env.ALLOWED_ORIGINS
-        ? process.env.ALLOWED_ORIGINS.split(",")
-        : ["http://localhost:3333", "http://localhost:8000"];
-
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("不允许的 CORS 来源"));
-      }
-    }
+    // 放开所有来源访问
+    return callback(null, true);
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
