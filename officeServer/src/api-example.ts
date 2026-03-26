@@ -34,8 +34,28 @@ import {
 
 const app = express();
 
+/**
+ * 安全返回 JSON 响应，避免重复发送响应头
+ * @param {Response} res Express 响应对象
+ * @param {number} statusCode HTTP 状态码
+ * @param {unknown} payload 响应体
+ * @returns {void}
+ */
+function sendJsonSafely(
+  res: Response,
+  statusCode: number,
+  payload: unknown,
+): void {
+  if (res.headersSent) {
+    console.warn("响应头已发送，跳过重复响应:", statusCode);
+    return;
+  }
+  res.status(statusCode).json(payload);
+}
+
 interface ConfigRequest {
   fileId: string;
+  fileName?: string;
   userId?: string;
   userName?: string;
   mode?: string;
@@ -57,22 +77,21 @@ const corsOptions: cors.CorsOptions = {
   origin: function (origin, callback) {
     // 允许所有来源（开发环境）
     // 生产环境建议配置具体的域名
-    // if (!origin || process.env.NODE_ENV !== "production") {
-    //   callback(null, true);
-    // } else {
-    //   // 生产环境可以配置允许的域名列表3333为onlyoffice的端口
-    //   // 8000为前端端口
-    //   const allowedOrigins = process.env.ALLOWED_ORIGINS
-    //     ? process.env.ALLOWED_ORIGINS.split(",")
-    //     : ["http://localhost:3333", "http://localhost:8000"];
+    if (!origin || process.env.NODE_ENV !== "production") {
+      return callback(null, true);
+    } else {
+      // 生产环境可以配置允许的域名列表3333为onlyoffice的端口
+      // 8000为前端端口
+      const allowedOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(",")
+        : ["http://localhost:3333", "http://localhost:8000"];
 
-    //   if (allowedOrigins.indexOf(origin) !== -1) {
-    //     callback(null, true);
-    //   } else {
-    //     callback(new Error("不允许的 CORS 来源"));
-    //   }
-    // }
-    callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("不允许的 CORS 来源"));
+      }
+    }
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
@@ -96,6 +115,28 @@ app.use(cors(corsOptions));
 // 显式处理 OPTIONS 预检请求（作为额外保障）
 app.options("*", cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/**
+ * 解析配置接口请求体
+ * 兼容对象和 JSON 字符串两种场景，避免因请求体未被正确解析导致字段丢失
+ * @param {unknown} body 原始请求体
+ * @returns {ConfigRequest} 解析后的请求体对象
+ */
+function parseConfigRequestBody(body: unknown): ConfigRequest {
+  if (!body) {
+    return {} as ConfigRequest;
+  }
+  if (typeof body === "string") {
+    try {
+      return JSON.parse(body) as ConfigRequest;
+    } catch (error) {
+      console.warn("config 请求体不是合法 JSON 字符串:", body);
+      return {} as ConfigRequest;
+    }
+  }
+  return body as ConfigRequest;
+}
 
 // 初始化 MinIO 客户端
 initMinioClient(config.minio);
@@ -106,15 +147,28 @@ initMinioClient(config.minio);
  * @param {string} originalUrl 原始回调中的文档下载 URL（可能是域名+端口或 IP+端口）
  * @param {string} host 配置中的外部访问主机名或 IP
  * @param {number} port 配置中的外部访问端口
- * @returns {string} 替换主机和端口后的新 URL
+ * @returns {string} 可访问的下载 URL
  */
 function buildDownloadUrl(
   originalUrl: string,
   host: string,
-  port: number
+  port: number,
 ): string {
   try {
     const parsed = new URL(originalUrl);
+    const replaceHosts = new Set([
+      "localhost",
+      "127.0.0.1",
+      "0.0.0.0",
+      "onlyoffice",
+      "onlyoffice-server",
+    ]);
+
+    // 仅在原始地址主机明显不可用或需要映射时替换，避免错误改写可访问地址
+    if (!replaceHosts.has(parsed.hostname)) {
+      return originalUrl;
+    }
+
     parsed.hostname = host;
     if (port) {
       parsed.port = String(port);
@@ -194,24 +248,26 @@ app.post(
           console.log("originalUrl:", originalUrl);
           console.log(
             "config.onlyoffice.documentServerUrl:",
-            config.onlyoffice.documentServerUrl
+            config.onlyoffice.documentServerUrl,
           );
 
           if (originalUrl && downUrl) {
             const newUrl = buildDownloadUrl(
               originalUrl,
               config.onlyoffice.host,
-              config.onlyoffice.port
+              config.onlyoffice.port,
             );
 
             console.log("newUrl:", newUrl);
-            console.log("config.document.downloadPath:", config.document.downloadPath);
-            const downloadPath=path.join(config.document.downloadPath,fileUrl);
+            console.log(
+              "config.document.downloadPath:",
+              config.document.downloadPath,
+            );
             downloadAndSaveDocument(
               newUrl,
               config.minio,
               config.document.downloadPath,
-              fileUrl
+              fileUrl,
             ).catch((err) => {
               console.error("保存文档失败:", err);
             });
@@ -229,12 +285,12 @@ app.post(
       }
 
       // 返回成功响应
-      res.json({ error: 0 });
+      return sendJsonSafely(res, 200, { error: 0 });
     } catch (error: any) {
       console.error("处理回调时出错:", error);
-      res.status(500).json({ error: 1, message: error.message });
+      return sendJsonSafely(res, 500, { error: 1, message: error.message });
     }
-  }
+  },
 );
 
 /**
@@ -307,8 +363,21 @@ app.post(
   "/onlyofficeServer/onlyoffice/config",
   async (req: Request<{}, ApiResponse, ConfigRequest>, res: Response) => {
     try {
-      const { fileId, userId, userName, mode = "view", permissions } = req.body;
-      console.log("fileId", req.body.mode);
+      const requestBody = parseConfigRequestBody(req.body);
+      const { userId, userName, mode = "view", permissions } = requestBody;
+
+      /**
+       * 兼容 fileId/fileName 两种字段，避免前端字段名不一致导致请求失败
+       */
+      const fileId = (requestBody.fileId || requestBody.fileName || "").trim();
+
+      console.log("收到 config 请求参数:", {
+        fileId: requestBody.fileId,
+        fileName: requestBody.fileName,
+        mode: requestBody.mode,
+        contentType: req.headers["content-type"],
+      });
+
       if (!fileId) {
         return res.status(400).json(badRequest("文档名不能为空"));
       }
@@ -353,7 +422,7 @@ app.post(
       const defaultCustomization = (config.document.defaultCustomization ||
         {}) as DocumentCustomization;
       const defaultLayout = defaultCustomization.layout || {};
-      const requestLayout = req.body.layout || {};
+      const requestLayout = requestBody.layout || {};
       const newCallbackUrl = `${config.onlyoffice.callbackUrl}?downUrl=${documentUrl}&fileUrl=${encodeURIComponent(fileId)}`;
       const defaultLang = config.onlyoffice.defaultLang || "zh-CN";
 
@@ -515,20 +584,22 @@ app.post(
         }
       }
 
-      res.json(
+      return sendJsonSafely(
+        res,
+        200,
         success(
           {
             config: editorConfig,
             token: token,
           },
-          "编辑器配置获取成功"
-        )
+          "编辑器配置获取成功",
+        ),
       );
     } catch (error: any) {
       console.error("获取编辑器配置失败:", error);
-      res.status(500).json(serverError(error.message));
+      return sendJsonSafely(res, 500, serverError(error.message));
     }
-  }
+  },
 );
 
 /**
@@ -551,8 +622,8 @@ app.get(
           .status(400)
           .json(
             badRequest(
-              "请提供文件名参数，例如: onlyofficeServer/test/presigned-url?file=test.docx"
-            )
+              "请提供文件名参数，例如: onlyofficeServer/test/presigned-url?file=test.docx",
+            ),
           );
       }
 
@@ -568,7 +639,7 @@ app.get(
         return res.status(404).json(
           notFound(`文件 "${file}" 在 MinIO 中不存在`, {
             tip: "请先上传文件到 MinIO 存储桶",
-          })
+          }),
         );
       }
 
@@ -577,10 +648,12 @@ app.get(
       const presignedUrl = await getMinioPresignedUrl(
         file,
         config.minio,
-        expirySeconds
+        expirySeconds,
       );
 
-      res.json(
+      return sendJsonSafely(
+        res,
+        200,
         success(
           {
             file: file,
@@ -595,21 +668,21 @@ app.get(
                 7 * 24 * 60 * 60) / 3600,
             tip: "您可以在浏览器中打开此 URL 来测试文件访问",
           },
-          "预签名 URL 生成成功"
-        )
+          "预签名 URL 生成成功",
+        ),
       );
     } catch (error: any) {
       console.error("测试预签名 URL 失败:", error);
-      res.status(500).json(serverError(error.message));
+      return sendJsonSafely(res, 500, serverError(error.message));
     }
-  }
+  },
 );
 
 app.post(
   "/onlyofficeServer/test/presigned-url",
   async (
     req: Request<{}, ApiResponse, { file?: string; expiry?: number }>,
-    res: Response
+    res: Response,
   ) => {
     try {
       const { file, expiry } = req.body;
@@ -632,7 +705,7 @@ app.post(
         return res.status(404).json(
           notFound(`文件 "${file}" 在 MinIO 中不存在`, {
             tip: "请先上传文件到 MinIO 存储桶",
-          })
+          }),
         );
       }
 
@@ -641,10 +714,12 @@ app.post(
       const presignedUrl = await getMinioPresignedUrl(
         file,
         config.minio,
-        expirySeconds
+        expirySeconds,
       );
 
-      res.json(
+      return sendJsonSafely(
+        res,
+        200,
         success(
           {
             file: file,
@@ -659,14 +734,14 @@ app.post(
                 7 * 24 * 60 * 60) / 3600,
             tip: "您可以在浏览器中打开此 URL 来测试文件访问",
           },
-          "预签名 URL 生成成功"
-        )
+          "预签名 URL 生成成功",
+        ),
       );
     } catch (error: any) {
       console.error("测试预签名 URL 失败:", error);
-      res.status(500).json(serverError(error.message));
+      return sendJsonSafely(res, 500, serverError(error.message));
     }
-  }
+  },
 );
 
 /**
@@ -708,10 +783,10 @@ app.listen(PORT, HOST, () => {
   console.log("配置文件已加载，JWT 密钥:", JWT_SECRET ? "已设置" : "未设置");
   console.log("测试接口:");
   console.log(
-    `  GET  http://localhost:${PORT}/onlyofficeServer/test/presigned-url?file=文件名`
+    `  GET  http://localhost:${PORT}/onlyofficeServer/test/presigned-url?file=文件名`,
   );
   console.log(
-    `  POST http://localhost:${PORT}/onlyofficeServer/test/presigned-url`
+    `  POST http://localhost:${PORT}/onlyofficeServer/test/presigned-url`,
   );
   const serverIP = getLocalIP();
   console.log(`当前服务器 IP 地址: ${serverIP}`);

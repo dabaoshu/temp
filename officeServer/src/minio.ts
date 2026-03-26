@@ -301,20 +301,9 @@ export async function downloadAndSaveDocument(
   fileUrl?: string
 ): Promise<string> {
   try {
+    console.log("downloadAndSaveDocument:", url, config, downloadPath, fileUrl);
     // 如果提供了 fileUrl，使用它作为文件名，否则使用时间戳生成文件名
     let objectName: string=fileUrl
-    // if (fileUrl) {
-    //   // 从 fileUrl 中提取文件名，如果 fileUrl 是完整路径，只取文件名部分
-    //   objectName = path.basename(fileUrl) || `document_${Date.now()}.docx`;
-    // } else {
-    //   objectName = `document_${Date.now()}.docx`;
-    // }
-
-    // 确保对象名称以时间戳为前缀，避免覆盖
-    const timestamp = Date.now();
-    // objectName = `${timestamp}_${objectName}`;
-    // objectName = `${timestamp}_${objectName}`;
-
     // 从 URL 下载文件
     const fileBuffer = await downloadFileFromUrl(url);
 
